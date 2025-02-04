@@ -13,11 +13,6 @@ A repository for fine-tuning a transformer model to generate tweets. This projec
   - [Fine-tuning the Model](#fine-tuning-the-model)
   - [Generating Tweets](#generating-tweets)
 - [Fine-tuning Details](#fine-tuning-details)
-- [Results](#results)
-- [Future Work](#future-work)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
 
 ## Overview
 
