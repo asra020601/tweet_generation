@@ -7,7 +7,9 @@ from torch.utils.data import DataLoader
 from dataloader import train_loader, val_loader,val_dataset
 from data import val_data
 from evaluate import calc_loss_batch, evaluate_model, generate_and_print_sample
-
+from transformers import AutoModel
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false" 
 model = GPT2LMHeadModel.from_pretrained("gpt2")
 tokenizer = AutoTokenizer.from_pretrained("gpt2")
 
@@ -48,11 +50,10 @@ def train_model_simple(model, train_loader, val_loader, optimizer, num_epochs,
 
 start_time = time.time()
 
-torch.manual_seed(123)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=0.00005, weight_decay=0.1)
 
-num_epochs = 2
+num_epochs = 10
 
 train_losses, val_losses, tokens_seen = train_model_simple(
     model, train_loader, val_loader, optimizer,
@@ -63,3 +64,5 @@ train_losses, val_losses, tokens_seen = train_model_simple(
 end_time = time.time()
 execution_time_minutes = (end_time - start_time) / 60
 print(f"Training completed in {execution_time_minutes:.2f} minutes.")
+model.save_pretrained("saved_model")
+torch.save({'epoch': epoch, 'model_state_dict': model.state_dict()}, "checkpoint.pth")

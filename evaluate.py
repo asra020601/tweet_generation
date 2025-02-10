@@ -1,31 +1,32 @@
 import torch
 
-def generate_text_simple(model, idx, max_new_tokens, context_size):
-    # idx is (B, T) array of indices in the current context
-    for _ in range(max_new_tokens):
+def generate_text_simple(model, input_ids, max_new_tokens=20, temperature=1.0):
+    # Perform a forward pass to get the outputs from the model.
+    outputs = model(input_ids)
+    
+    # Extract logits from outputs.
+    # If the model returns a tuple, take the first element, otherwise use outputs.logits.
+    logits = outputs[0] if isinstance(outputs, tuple) else outputs.logits
+    
+    # Get logits for the last token in the sequence.
+    logits = logits[:, -1, :]
+    
+    # Optionally scale the logits by temperature.
+    logits = logits / temperature
+    
+    # Convert logits to probabilities.
+    probs = torch.softmax(logits, dim=-1)
+    
+    # Sample the next token.
+    next_token = torch.multinomial(probs, num_samples=1)
+    
+    # Append the new token to the input_ids.
+    token_ids = torch.cat([input_ids, next_token], dim=-1)
+    
+    return token_ids
 
-        # Crop current context if it exceeds the supported context size
-        # E.g., if LLM supports only 5 tokens, and the context size is 10
-        # then only the last 5 tokens are used as context
-        idx_cond = idx[:, -context_size:]
-
-        # Get the predictions
-        with torch.no_grad():
-            logits = model(idx_cond)
-
-        # Focus only on the last time step
-        # (batch, n_token, vocab_size) becomes (batch, vocab_size)
-        logits = logits[:, -1, :]
-
-        # Get the idx of the vocab entry with the highest logits value
-        idx_next = torch.argmax(logits, dim=-1, keepdim=True)  # (batch, 1)
-
-        # Append sampled index to the running sequence
-        idx = torch.cat((idx, idx_next), dim=1)  # (batch, n_tokens+1)
-
-    return idx
 def text_to_token_ids(text, tokenizer):
-    encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
+    encoded = tokenizer.encode(text)
     encoded_tensor = torch.tensor(encoded).unsqueeze(0)  # add batch dimension
     return encoded_tensor
 
@@ -65,15 +66,12 @@ def evaluate_model(model, train_loader, val_loader, eval_iter):
     return train_loss, val_loss
 
 
-def generate_and_print_sample(model, tokenizer, start_context):
+def generate_and_print_sample(model, tokenizer, start_context="hello"):
     model.eval()
-    context_size = model.pos_emb.weight.shape[0]
+    context_size = model.transformer.wpe.weight.shape[0]
     encoded = text_to_token_ids(start_context, tokenizer)
     with torch.no_grad():
-        token_ids = generate_text_simple(
-            model=model, idx=encoded,
-            max_new_tokens=50, context_size=context_size
-        )
+        token_ids = generate_text_simple(model, input_ids, max_new_tokens=20, temperature=1.0)
         decoded_text = token_ids_to_text(token_ids, tokenizer)
         print(decoded_text.replace("\n", " "))  # Compact print format
     model.train()

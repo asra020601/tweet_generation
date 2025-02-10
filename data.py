@@ -93,8 +93,7 @@ class DatasetV1(Dataset):
         return self.input_ids[index], self.target_ids[index]
 
     def __len__(self):
-        return len(self.data)
-
+       return len(self.input_ids)
     def _longest_encoded_length(self):
         max_length = 0
         for encoded_text in self.encoded_texts:
