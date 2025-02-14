@@ -1,29 +1,52 @@
 import torch
-
+from data import tokenizer
+prompt = "Hello world"
+input_ids = tokenizer.encode(prompt, return_tensors='pt')  # shape: [1, seq_len]
 def generate_text_simple(model, input_ids, max_new_tokens=20, temperature=1.0):
-    # Perform a forward pass to get the outputs from the model.
-    outputs = model(input_ids)
+    """
+    Generate text using a simple sampling approach.
     
-    # Extract logits from outputs.
-    # If the model returns a tuple, take the first element, otherwise use outputs.logits.
-    logits = outputs[0] if isinstance(outputs, tuple) else outputs.logits
+    Args:
+        model: The transformer model
+        input_ids (torch.Tensor): Input token ids of shape [seq_len] or [batch_size, seq_len]
+        max_new_tokens (int): Maximum number of tokens to generate
+        temperature (float): Sampling temperature
     
-    # Get logits for the last token in the sequence.
-    logits = logits[:, -1, :]
+    Returns:
+        torch.Tensor: Generated token ids
+    """
+    # Add batch dimension if it's missing
+    if len(input_ids.shape) == 1:
+        input_ids = input_ids.unsqueeze(0)  # Shape: [1, seq_len]
     
-    # Optionally scale the logits by temperature.
-    logits = logits / temperature
+    # Generate tokens one at a time
+    for _ in range(max_new_tokens):
+        # Perform a forward pass
+        outputs = model(input_ids)
+        
+        # Extract logits from outputs
+        logits = outputs[0] if isinstance(outputs, tuple) else outputs.logits
+        
+        # Get logits for the last token
+        logits = logits[:, -1, :]  # Shape: [batch_size, vocab_size]
+        
+        # Apply temperature
+        logits = logits / temperature
+        
+        # Convert to probabilities
+        probs = torch.softmax(logits, dim=-1)
+        
+        # Sample next token
+        next_token = torch.multinomial(probs, num_samples=1)  # Shape: [batch_size, 1]
+        
+        # Append the new token
+        input_ids = torch.cat([input_ids, next_token], dim=-1)
     
-    # Convert logits to probabilities.
-    probs = torch.softmax(logits, dim=-1)
-    
-    # Sample the next token.
-    next_token = torch.multinomial(probs, num_samples=1)
-    
-    # Append the new token to the input_ids.
-    token_ids = torch.cat([input_ids, next_token], dim=-1)
-    
-    return token_ids
+    # Remove batch dimension if it wasn't originally present
+    if len(input_ids.shape) == 2 and input_ids.shape[0] == 1:
+        input_ids = input_ids.squeeze(0)
+        
+    return input_ids
 
 def text_to_token_ids(text, tokenizer):
     encoded = tokenizer.encode(text)
